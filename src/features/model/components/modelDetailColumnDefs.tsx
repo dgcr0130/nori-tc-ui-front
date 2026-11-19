@@ -62,6 +62,9 @@ export const PLC_DATA_TYPE_OPTIONS = [
 /** plc-register BCD Signed 선택 옵션(빈값=null 허용). */
 export const PLC_BCD_SIGNED_OPTIONS = ['true', 'false'] as const
 
+/** plc-register Byte Order / Word Order 선택 옵션(빈값은 기본 BIG_ENDIAN). */
+const PLC_ORDER_OPTIONS = ['BIG_ENDIAN', 'LITTLE_ENDIAN'] as const
+
 const isPlcAreaColumnName = (columnName: string): boolean =>
   columnName.trim().toLowerCase() === 'area'
 
@@ -73,6 +76,9 @@ const isPlcGroupColumnName = (columnName: string): boolean =>
 
 const isPlcBcdSignedColumnName = (columnName: string): boolean =>
   columnName.trim().toLowerCase() === 'bcd signed'
+
+const isPlcOrderColumnName = (columnName: string): boolean =>
+  ['byte order', 'word order'].includes(columnName.trim().toLowerCase())
 
 const isPlcMessageNameColumnName = (columnName: string): boolean =>
   columnName.trim().toLowerCase() === 'message name'
@@ -542,7 +548,7 @@ interface PlcColumnsDeps {
 
 /**
  * plc-group / plc-register 노드 공통 ColumnDef factory.
- * Area / Data Type / BCD Signed 는 고정 enum 드롭다운, Group 은 plc-group message_name 드롭다운,
+ * Area / Data Type / BCD Signed / Byte Order / Word Order 는 고정 enum 드롭다운, Group 은 plc-group message_name 드롭다운,
  * 그 외(Message Name / Word Offset / 주소 / Variable Name 등)는 일반 Input(generic UX).
  */
 export const createPlcColumns = ({
@@ -559,7 +565,9 @@ export const createPlcColumns = ({
         ? PLC_DATA_TYPE_OPTIONS
         : isPlcBcdSignedColumnName(columnName)
           ? PLC_BCD_SIGNED_OPTIONS
-          : null
+          : isPlcOrderColumnName(columnName)
+            ? PLC_ORDER_OPTIONS
+            : null
     const isGroup = isPlcGroupColumnName(columnName)
 
     return {
