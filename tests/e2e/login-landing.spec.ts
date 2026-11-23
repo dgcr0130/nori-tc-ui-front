@@ -1,3 +1,4 @@
+import { widgetResponse } from './ai-widget-asset'
 import { expect, test, type ConsoleMessage, type Page } from '@playwright/test'
 
 /**
@@ -56,6 +57,7 @@ const emptyLayout = (lineKey: number) => ({
  * @param me `/api/auth/me` 가 돌려줄 사용자 — 이 스펙의 유일한 변수다
  */
 const setupMocks = async (page: Page, me: typeof ME_WITH_LIVE_MAP) => {
+  await page.route('**/api/ai/assets/widget.js', route => route.fulfill(widgetResponse))
   await page.route('**/api/auth/csrf', async (route) => {
     // set-cookie 로 JS 가시 쿠키를 심어야 issueCsrfToken 의 readCsrfCookieToken 이 값을 읽는다
     // (Double Submit Cookie). 헤더가 없으면 로그인이 CSRF_TOKEN_MISSING 으로 죽는다.

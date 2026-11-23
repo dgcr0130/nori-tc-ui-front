@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
+import { widgetResponse } from '../ai-widget-asset'
 
 /**
  * 실패가 **화면에 문구로 나타나는지** 를 검증한다.
@@ -56,6 +57,7 @@ const setupMocks = async (page: Page, overrides: FailureOverrides) => {
     },
     async (route: Route, request) => {
       const p = new URL(request.url()).pathname
+      if (p === '/api/ai/assets/widget.js') return route.fulfill(widgetResponse)
       const json = (status: number, body: unknown) =>
         route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
 

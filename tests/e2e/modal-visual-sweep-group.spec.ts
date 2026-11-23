@@ -1,3 +1,4 @@
+import { widgetResponse } from './ai-widget-asset'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
 /**
@@ -90,6 +91,7 @@ const setupMocks = async (page: Page) => {
     async (route: Route, request) => {
       const url = new URL(request.url())
       const p = url.pathname
+      if (p === '/api/ai/assets/widget.js') return route.fulfill(widgetResponse)
       const method = request.method()
 
       if (p === '/api/auth/csrf') return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'set-cookie': 'XSRF-TOKEN=t; Path=/' }, body: JSON.stringify(apiNull()) })

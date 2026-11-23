@@ -28,6 +28,8 @@ blob-report/
 !/tests/e2e/_perf_measure.mjs
 !/tests/e2e/_load_trace.mjs
 !/tests/e2e/login-landing.spec.ts
+!/tests/e2e/ai-widget.spec.ts
+!/tests/e2e/ai-widget-asset.ts
 !/tests/e2e/layout-overflow-guard.spec.ts
 !/tests/e2e/modal-overflow-guard-extra.spec.ts
 !/tests/e2e/modal-visual-sweep-eqp.spec.ts

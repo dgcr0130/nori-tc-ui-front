@@ -1,3 +1,4 @@
+import { widgetResponse } from './ai-widget-asset'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
 /**
@@ -144,6 +145,7 @@ const setupMocks = async (page: Page) => {
     async (route: Route, request) => {
       const url = new URL(request.url())
       const pathname = url.pathname
+      if (pathname === '/api/ai/assets/widget.js') return route.fulfill(widgetResponse)
       const method = request.method()
 
       if (pathname === '/api/auth/csrf') {
