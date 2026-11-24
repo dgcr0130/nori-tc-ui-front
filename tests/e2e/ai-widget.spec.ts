@@ -15,14 +15,15 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
   if (!csp) throw new Error('운영 CSP를 찾을 수 없습니다.')
   const root = resolve('dist')
   const errors: string[] = []
-  let assetRequests = 0
+  const assetRequests: URL[] = []
   // 개발 서버의 refresh 인라인 스크립트 대신 실제 배포 HTML과 자산에 운영 CSP를 적용한다.
   const server = createServer((request, response) => {
     void (async () => {
-      const path = new URL(request.url ?? '/', 'http://localhost').pathname
+      const url = new URL(request.url ?? '/', 'http://localhost')
+      const path = url.pathname
       response.setHeader('Content-Security-Policy', csp)
       if (path === '/api/ai/assets/widget.js') {
-        assetRequests++
+        assetRequests.push(url)
         response.setHeader('Content-Type', 'application/javascript')
         response.end(widgetBytes)
         return
@@ -112,7 +113,8 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
     expect(fontFamily.split(',')[0]?.replaceAll('"', '').trim()).toBe('Pretendard Variable')
     const observation = await page.evaluate(() => Reflect.get(window, 'aiObservation') as { definitions: number; violations: CspViolation[]; fetches: { credentials: string; authorization: string | null }[] })
     expect(observation.definitions).toBe(1)
-    expect(observation.violations.filter(violation => violation.sourceFile === origin + '/api/ai/assets/widget.js'
+    expect(observation.violations.filter(violation => (violation.sourceFile.startsWith(origin + '/')
+      && new URL(violation.sourceFile).pathname === '/api/ai/assets/widget.js')
       || violation.directive.startsWith('style-src'))).toEqual([])
     expect(observation.violations.filter(violation => {
       // 기존 zod의 eval 지원 검사만 허용하며 위젯·스타일·다른 CSP 위반은 계속 실패시킨다.
@@ -123,7 +125,9 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
     expect(observation.fetches.length).toBeGreaterThan(1)
     expect(observation.fetches.every(request => request.credentials === 'same-origin' && request.authorization === null)).toBe(true)
     expect(sessionRequests.length).toBeGreaterThanOrEqual(2)
-    expect(assetRequests).toBe(1)
+    expect(assetRequests).toHaveLength(1)
+    expect(assetRequests[0].pathname).toBe('/api/ai/assets/widget.js')
+    expect([...assetRequests[0].searchParams.entries()]).toEqual([['v', '1.0.1']])
     expect(createHash('sha256').update(widgetBytes).digest('hex')).toBe(widgetSha256)
     expect(errors).toEqual([])
   } finally {
