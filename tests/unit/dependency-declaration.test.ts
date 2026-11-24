@@ -79,7 +79,7 @@ test('three-stdlib 는 전이 의존이 아니라 직접 dependencies 로 선언
   const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
     dependencies?: Record<string, string>
   }
-  // vite.config.ts 의 manualChunks 가 three-vendor 로 명시 라우팅하므로 빌드 구성이 이 패키지를 전제한다.
+  // vite.config.ts 의 manualChunks 가 three-addons 로 명시 라우팅하므로 빌드 구성이 이 패키지를 전제한다.
   assert.ok(
     manifest.dependencies?.['three-stdlib'],
     'three-stdlib 가 dependencies 에 없다 — @react-three/drei 전이 의존에만 의존하는 상태',
