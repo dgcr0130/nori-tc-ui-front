@@ -12,6 +12,16 @@ spec:
   hostnames:
     - {{ .Values.gateway.hostname | quote }}
   rules:
+    # AI 위젯 SSE는 공통 jar가 최대 180초 유지한다. Envoy 기본 요청 제한 15초가 스트림을 끊지 않게 이 경로만 300초로 둔다.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/ai/
+      timeouts:
+        request: 300s
+      backendRefs:
+        - name: {{ .Values.app.name }}
+          port: {{ .Values.service.port }}
     - matches:
         - path:
             type: PathPrefix
