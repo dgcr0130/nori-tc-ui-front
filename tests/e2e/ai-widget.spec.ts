@@ -127,7 +127,7 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
     expect(sessionRequests.length).toBeGreaterThanOrEqual(2)
     expect(assetRequests).toHaveLength(1)
     expect(assetRequests[0].pathname).toBe('/api/ai/assets/widget.js')
-    expect([...assetRequests[0].searchParams.entries()]).toEqual([['v', '1.0.1']])
+    expect([...assetRequests[0].searchParams.entries()]).toEqual([['v', '1.0.2']])
     expect(createHash('sha256').update(widgetBytes).digest('hex')).toBe(widgetSha256)
     expect(errors).toEqual([])
   } finally {
