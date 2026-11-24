@@ -5,9 +5,11 @@ import { resolve, extname } from 'node:path'
 import { widgetBytes, widgetSha256 } from './ai-widget-asset'
 import { createHash } from 'node:crypto'
 
+test.use({ locale: 'ko-KR' })
+
 interface CspViolation { directive: string; blockedURI: string; sourceFile: string }
 
-test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유지한다', async ({ page, context }) => {
+test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유지한다', async ({ page, context }, testInfo) => {
   const nginx = await readFile(resolve('deploy/docker/nginx.conf'), 'utf8')
   const csp = /add_header Content-Security-Policy "([^"]+)" always;/.exec(nginx)?.[1]
   if (!csp) throw new Error('운영 CSP를 찾을 수 없습니다.')
@@ -79,24 +81,35 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
     await page.goto(origin + '/login')
     const widget = page.locator('nori-ai-widget')
     await expect(widget).toHaveCount(1)
-    await page.getByRole('button', { name: 'AI 열기', exact: true }).click()
+    await page.getByRole('button', { name: 'AI 대화 열기', exact: true }).click()
     await expect(widget).toContainText('로그인이 필요합니다.')
-    await page.getByRole('button', { name: '닫기', exact: true }).click()
+    await page.getByRole('button', { name: 'AI 대화 최소화', exact: true }).click()
     await page.locator('#userId').fill('tester')
     await page.locator('#password').fill('password1234')
     await page.locator('button[type="submit"]').click()
     await expect(page).toHaveURL(origin + '/dlq')
     await expect(widget).toHaveCount(1)
-    await page.getByRole('button', { name: 'AI 열기', exact: true }).click()
+    await page.getByRole('button', { name: 'AI 대화 열기', exact: true }).click()
     await expect(widget.getByRole('button', { name: '새 대화', exact: true })).toBeEnabled()
     await expect(widget.getByRole('button', { name: '검토', exact: true })).toHaveCount(0)
     await expect(page.locator('a[href*="/ai"]')).toHaveCount(0)
+    await widget.getByRole('textbox', { name: '질문', exact: true }).fill('TC 호스트 초안')
+    await page.getByRole('button', { name: 'AI 대화 최소화', exact: true }).click()
+    await page.getByRole('button', { name: 'AI 대화 열기', exact: true }).click()
+    await expect(widget.getByRole('textbox', { name: '질문', exact: true })).toHaveValue('TC 호스트 초안')
+    await page.getByRole('button', { name: '다크 모드로 전환', exact: true }).click()
+    await expect(widget.locator('.panel')).toHaveCSS('background-color', 'rgb(25, 28, 33)')
+    await page.screenshot({ path: testInfo.outputPath('implemented-tc-dark.png') })
+    await page.getByRole('button', { name: '라이트 모드로 전환', exact: true }).click()
+    await expect(widget.locator('.panel')).toHaveCSS('background-color', 'rgb(255, 255, 255)')
     await page.addStyleTag({ content: 'button { border: 19px solid magenta !important; font-size: 57px !important; }' })
     expect(await widget.evaluate(element => {
       const button = element.shadowRoot?.querySelector('button')
       return { shadow: !!element.shadowRoot, headers: Reflect.get(element, 'requestHeaders') === undefined,
         border: button ? getComputedStyle(button).borderTopWidth : null, font: button ? getComputedStyle(button).fontSize : null }
     })).toEqual({ shadow: true, headers: true, border: '1px', font: '14px' })
+    const fontFamily = await widget.evaluate(element => getComputedStyle(element.shadowRoot!.querySelector('header button')!).fontFamily)
+    expect(fontFamily.split(',')[0]?.replaceAll('"', '').trim()).toBe('Pretendard Variable')
     const observation = await page.evaluate(() => Reflect.get(window, 'aiObservation') as { definitions: number; violations: CspViolation[]; fetches: { credentials: string; authorization: string | null }[] })
     expect(observation.definitions).toBe(1)
     expect(observation.violations.filter(violation => violation.sourceFile === origin + '/api/ai/assets/widget.js'
