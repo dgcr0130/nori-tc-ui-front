@@ -139,7 +139,7 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
     expect(sessionRequests.length).toBeGreaterThanOrEqual(2)
     expect(assetRequests).toHaveLength(1)
     expect(assetRequests[0].pathname).toBe('/api/ai/assets/widget.js')
-    expect([...assetRequests[0].searchParams.entries()]).toEqual([['v', '1.0.4']])
+    expect([...assetRequests[0].searchParams.entries()]).toEqual([['v', '1.0.5']])
     expect(createHash('sha256').update(widgetBytes).digest('hex')).toBe(widgetSha256)
     expect(errors).toEqual([])
     // 같은 origin의 두 실제 SPA에서 최소화 중 통지와 서버 로그아웃 실패를 함께 확인한다.
