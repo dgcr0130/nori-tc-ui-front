@@ -1,4 +1,5 @@
 import { isAxiosError } from 'axios'
+import { notifyAiAuth } from '@/shared/lib/ai-widget-auth'
 import i18n from '@/i18n'
 import { apiClient } from '@/shared/lib/api-client'
 import { CSRF_HEADER_NAME, issueCsrfToken } from '@/shared/lib/csrf'
@@ -127,6 +128,7 @@ export const authApi = {
    * - token 본문 의존 없이 쿠키 기반 인증만 사용
   */
   login: async (credentials: LoginRequest): Promise<LoginSuccessResponse> => {
+    notifyAiAuth('signed-out')
     const csrfToken = await requestAuthCsrfToken('login')
 
     try {
@@ -143,6 +145,7 @@ export const authApi = {
       const parsedResponse = response.data
 
       if (isLoginSuccessResponse(parsedResponse)) {
+        notifyAiAuth('check')
         console.info('[authApi] login success', {
           userPk: parsedResponse.data.userPk,
         })
@@ -174,6 +177,7 @@ export const authApi = {
    * - 401은 이미 인증이 만료된 상태일 수 있으므로 로그아웃 완료로 간주합니다.
   */
   logout: async (): Promise<void> => {
+    notifyAiAuth('signed-out')
     const csrfToken = await requestAuthCsrfToken('logout')
 
     try {

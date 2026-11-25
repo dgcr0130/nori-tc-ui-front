@@ -11,6 +11,7 @@ import { PageLocation } from '@/shared/layout/PageLocation'
 import { resolveAppNavigationLocation } from '../lib/app-navigation'
 import { clearPersistedQueryCache } from '../lib/query-persistence'
 import { clearCsrfCookie } from '../lib/session'
+import { notifyAiAuth } from '../lib/ai-widget-auth'
 import { ThemeToggle } from './ThemeToggle'
 import { LineScopeSelector } from './LineScopeSelector'
 
@@ -49,6 +50,7 @@ export function AppTopBar({ onOpenProfile, onAfterLogout }: AppTopBarProps) {
     }
 
     setIsLogoutPending(true)
+    notifyAiAuth('signed-out')
 
     try {
       // 서버 로그아웃과 페이지별 정리는 AppShellPage 가 합성해 넘긴다 — 실패해도 로컬 정리는 진행한다.

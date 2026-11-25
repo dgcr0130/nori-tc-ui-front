@@ -58,9 +58,12 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
       }
     })
     let loggedIn = false
+    let logoutFails = false, expired = false, holdSession = false, sessionHeld = false
+    let releaseSession = () => {}
+    const pendingSession = new Promise<void>(resolve => { releaseSession = resolve })
     const sessionRequests: string[] = []
     const success = (data: unknown) => ({ success: true, data, errorCode: null, errorMsg: null })
-    await page.route(url => url.pathname.startsWith('/api/') && url.pathname !== '/api/ai/assets/widget.js', async route => {
+    await context.route(url => url.pathname.startsWith('/api/') && url.pathname !== '/api/ai/assets/widget.js', async route => {
       const request = route.request()
       const path = new URL(request.url()).pathname
       const json = (status: number, data: unknown) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) })
@@ -68,15 +71,24 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
         expect(request.headers().authorization).toBeUndefined()
         expect(request.headers().cookie).toContain('TC_UI_AUTH=fake-test-cookie')
         sessionRequests.push(path)
+        if (holdSession) {
+          holdSession = false; sessionHeld = true
+          await pendingSession
+          return json(200, { subject: '1', canReview: true, integrationVersion: '1.0.3', csrf: { headerName: 'X-Nori-AI-CSRF', token: 'old-session' } })
+        }
         return loggedIn ? json(200, { subject: '1', canReview: false, integrationVersion: '1.0.0', csrf: { headerName: 'X-Nori-AI-CSRF', token: 'test-csrf' } })
           : json(401, { code: 'LOGIN_REQUIRED', message: '로그인이 필요합니다.', requestId: 'test-request' })
       }
       if (path === '/api/ai/v1/conversations') return json(200, { items: [], nextAfter: null })
       if (path === '/api/auth/csrf') return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'set-cookie': 'XSRF-TOKEN=test-csrf; Path=/' }, body: JSON.stringify(success(null)) })
       if (path === '/api/auth/login') { loggedIn = true; return json(200, success({ userPk: 1, issuedAt: '2026-11-23T00:00:00Z', expiresAt: '2026-11-24T00:00:00Z' })) }
+      if (path === '/api/auth/logout') {
+        if (logoutFails) return json(503, { success: false, errorCode: 'UNAVAILABLE' })
+        loggedIn = false; return json(200, success(null))
+      }
       if (path === '/api/auth/me') return loggedIn ? json(200, success({ userPk: 1, userId: 'tester', permissionCodes: ['DLQ_READ', 'LINE_READ'] })) : json(401, { success: false })
       if (path === '/api/line') return json(200, success([{ lineKey: 1, lineCode: 'A', lineName: 'A' }]))
-      if (path.startsWith('/api/dlq/')) return json(200, success([]))
+      if (path.startsWith('/api/dlq/')) return expired ? json(401, { success: false }) : json(200, success([]))
       return json(200, success({ items: [], offset: 0, limit: 50, count: 0 }))
     })
     await page.goto(origin + '/login')
@@ -127,9 +139,48 @@ test('운영 CSP 아래 로그인 전후 태그 하나와 쿠키 연결을 유�
     expect(sessionRequests.length).toBeGreaterThanOrEqual(2)
     expect(assetRequests).toHaveLength(1)
     expect(assetRequests[0].pathname).toBe('/api/ai/assets/widget.js')
-    expect([...assetRequests[0].searchParams.entries()]).toEqual([['v', '1.0.2']])
+    expect([...assetRequests[0].searchParams.entries()]).toEqual([['v', '1.0.4']])
     expect(createHash('sha256').update(widgetBytes).digest('hex')).toBe(widgetSha256)
     expect(errors).toEqual([])
+    // 같은 origin의 두 실제 SPA에서 최소화 중 통지와 서버 로그아웃 실패를 함께 확인한다.
+    const other = await context.newPage()
+    try {
+      await other.goto(origin + '/dlq')
+      const otherWidget = other.locator('nori-ai-widget')
+      await other.getByRole('button', { name: 'AI 대화 열기', exact: true }).click()
+      await otherWidget.getByRole('textbox', { name: '질문', exact: true }).fill('다른 탭의 이전 초안')
+      await other.getByRole('button', { name: 'AI 대화 최소화', exact: true }).click()
+      holdSession = true
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await expect.poll(() => sessionHeld).toBe(true)
+      logoutFails = true
+      await page.getByRole('button', { name: '로그아웃', exact: true }).click()
+      await expect(page).toHaveURL(origin + '/login')
+      releaseSession()
+      await expect(widget.getByRole('textbox', { name: '질문', exact: true })).toHaveCount(0)
+      await expect.poll(() => otherWidget.evaluate(element => element.shadowRoot?.querySelector('textarea') === null)).toBe(true)
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await expect(widget.getByRole('textbox', { name: '질문', exact: true })).toHaveCount(0)
+      await page.locator('#userId').fill('tester'); await page.locator('#password').fill('password1234')
+      await page.locator('button[type="submit"]').click()
+      await expect(page).toHaveURL(origin + '/dlq')
+      await expect(widget.getByRole('textbox', { name: '질문', exact: true })).toHaveValue('')
+      await other.getByRole('button', { name: 'AI 대화 열기', exact: true }).click()
+      await expect(otherWidget.getByRole('textbox', { name: '질문', exact: true })).toHaveValue('')
+      logoutFails = false
+      await page.getByRole('button', { name: '로그아웃', exact: true }).click()
+      await expect(page).toHaveURL(origin + '/login')
+      await expect(otherWidget.getByRole('textbox', { name: '질문', exact: true })).toHaveCount(0)
+      await page.locator('#userId').fill('tester'); await page.locator('#password').fill('password1234')
+      await page.locator('button[type="submit"]').click()
+      await expect(page).toHaveURL(origin + '/dlq')
+      await page.getByRole('button', { name: 'AI 대화 최소화', exact: true }).click()
+      expired = true; loggedIn = false
+      await page.getByTestId('dlq-dashboard-refresh').click()
+      await expect(page).toHaveURL(origin + '/login')
+      await page.getByRole('button', { name: 'AI 대화 열기', exact: true }).click()
+      await expect(page.locator('nori-ai-widget')).toContainText('로그인이 필요합니다.')
+    } finally { releaseSession(); await other.close() }
   } finally {
     await page.close()
     await new Promise<void>((resolve, reject) => { server.close(error => error ? reject(error) : resolve()); server.closeAllConnections() })

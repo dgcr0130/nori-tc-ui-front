@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { notifyAiAuth } from './ai-widget-auth'
 
 /** 백엔드가 operation 접수의 idempotency 판정에 쓰는 헤더 이름(§13.2 / §14.1). */
 export const IDEMPOTENCY_KEY_HEADER = 'Idempotency-Key'
@@ -44,6 +45,7 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401) notifyAiAuth('signed-out')
     if (error.response?.status === 401 && window.location.pathname !== '/login') {
       window.location.href = '/login'
     }
